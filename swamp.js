@@ -121,6 +121,8 @@ function(obBinder, obBinderTypes, swStatus, restBinder, swHttp, $q, $rootScope)
 			}
 		}
 
+		if ( data == '' ) data = [];
+
 		this.storage[type] = data;
 
 		this.meta[type].binder = obBinder(
