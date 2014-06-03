@@ -98,15 +98,17 @@ function(obBinder, obBinderTypes, swStatus, restBinder, swHttp, $q, $rootScope)
 
 		swHttp.get('/'+resource)
 			.success(
-			function (data) {
-				self.setList(resource, data);
+				function (data) {
+					self.setList(resource, data);
 
-				deferred.resolve();
-			}
-		)
-			.error( function() {
-				deferred.reject();
-			} );
+					deferred.resolve();
+				}
+			)
+			.error(
+				function() {
+					deferred.reject();
+				}
+			);
 
 		return deferred.promise;
 	};
@@ -212,7 +214,7 @@ function (DirtyPersist, obBinderTypes, $parse, swHttp, $q)
 			index = getIndexOfItem(binder.scope[binder.model], update.id, binder.key);
 
 		// Check if item already exists
-		if (typeof index === 'number') {
+		if ( typeof index === 'number' ) {
 			defer.resolve();
 		} else {
 			index = binder.scope[binder.model].length;
@@ -301,11 +303,18 @@ function (DirtyPersist, obBinderTypes, $parse, swHttp, $q)
 
 	function postAdditions(binder, change, getter) {
 		var defer = $q.defer(),
-			promises = [];
+			promises = [],
+			length = change.addedCount + change.index + 1;
 
-		for (var j = change.index; j < change.addedCount + change.index; j++) {
+		for (var j = change.index; j <= length; j++) {
+			if ( j == length ) {
+				$q.all(promises).then( function(){ defer.resolve(); } );
+
+				break;
+			}
+
 			promises.push(
-				function() {
+				function () {
 					var elem = getter(binder.scope)[j];
 
 					// Post to server, assign the id we get back
@@ -319,18 +328,23 @@ function (DirtyPersist, obBinderTypes, $parse, swHttp, $q)
 			);
 		}
 
-		$q.all(promises).then(function(){
-			defer.resolve();
-		});
+
 
 		return defer.promise;
 	}
 
 	function postRemoves(binder, change) {
 		var defer = $q.defer(),
-			promises = [];
+			promises = [],
+			length = change.removed.length + 1;
 
-		for (var k = 0; k < change.removed.length; k++) {
+		for (var k = 0; k <= length ; k++) {
+			if ( k == length ) {
+				$q.all(promises).then( function(){ defer.resolve(); } );
+
+				break;
+			}
+
 			promises.push(
 				function(){
 					var object = change.removed[k];
@@ -339,8 +353,6 @@ function (DirtyPersist, obBinderTypes, $parse, swHttp, $q)
 				}(change)
 			);
 		}
-
-		$q.all(promises).then(function(){ defer.resolve(); });
 
 		return defer.promise;
 	}
@@ -359,21 +371,27 @@ function (DirtyPersist, obBinderTypes, $parse, swHttp, $q)
 			change = delta.changes[i];
 
 			if ( change.addedCount ) {
-				promises.push(function(){
-					return postAdditions(binder, change, getter);
-				}(change));
+				promises.push(
+					function(){
+						return postAdditions(binder, change, getter);
+					}(change)
+				);
 			}
 
 			if ( change.removed.length ) {
-				promises.push(function(){
-					return postRemoves(binder, change);
-				}(change));
+				promises.push(
+					function(){
+						return postRemoves(binder, change);
+					}(change)
+				);
 			}
 
 			if ( !$.isEmptyObject(change.changed) ) {
-				promises.push(function(){
-					return postChanges(binder, change);
-				}(change));
+				promises.push(
+					function(){
+						return postChanges(binder, change);
+					}(change)
+				);
 			}
 		}
 
